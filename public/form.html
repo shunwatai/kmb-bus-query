@@ -1,0 +1,123 @@
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+
+<!-- For enter the bus number and a submit button -->
+<div id='bus'>
+    <label>Enter bus number:</label> <input id='busNo'/>
+    <input type='submit' value='Submit'>
+</div>
+
+<!-- After submitted bus number, display both directions -->
+<div id='bound'></div>
+
+<!-- After selected the direction of route, display the bus stops name by listbox in this div -->
+<div id='route'></div>
+
+<!-- After selected the bus stop, display the "remaining time" for next coming buses info -->
+<div id='show_info'></div>
+
+<script type="text/javascript">
+	$(function(){
+	   $('#bus input[type="submit"]').click(function(e){ // when submit button is clicked
+	       e.preventDefault();
+           // empty content of previous query in the div area
+           $('#bound').empty()
+           $('#route').empty()
+
+           // get the bus number from user input and assign into "bus.number"
+	       var bus = {};
+	       bus.number = $("#busNo").val();
+           console.log(bus.number)
+
+           // GET request(bus.number) to nodejs (kmb.js), then nodejs return the JSON response(data)
+           // the response data are 2 directions info of the input bus number
+	       $.get("/busno",bus,function(data){
+               console.log(data[1].data.routeStops.length)
+               var info1 = data[0] // direction 1
+               var info2 = data[1] // direction 2
+
+               // if the response does not contain any bus stop info, return
+               if(info1.data.routeStops.length==0 && info2.data.routeStops.length==0){
+                   return $('<p>NO Info of this given bus number, the bus either not exist or not belongs to KMB</p>').appendTo('#route')
+               }
+
+               // show direction here
+               var src = info1.data.basicInfo.OriCName
+               var dest = info1.data.basicInfo.DestCName
+               var bound1 = src + '-->' + dest
+               var bound2 = dest + '-->' + src
+               // show 2 radio buttons for either 1.src-->dst or 2.src<--dst
+               $('<input type="radio" name="bound" value="1" checked />' + bound1 + '<br>').appendTo('#bound')
+               $('<input type="radio" name="bound" value="2" />' + bound2 + '<br>').appendTo('#bound')
+
+               // show bus stations name
+               var routeStops = info1.data.routeStops
+               console.log(info1.data.routeStops)
+               console.log(info2.data.routeStops)
+               $('<select id="route_stops" size="5"></select>').appendTo('#route')
+               // loop for all the bus stops and show them in the listbox
+               for (var i=0; i<routeStops.length; i++){
+                  $('<option value='+routeStops[i].Route+','+routeStops[i].Bound+','+routeStops[i].ServiceType+','+routeStops[i].BSICode+','+routeStops[i].Seq+'>' + i+'. ' + routeStops[i].CName + '</option>').appendTo('#route_stops')
+               }
+
+               // just an onclick event for the radio buttons to change the bus stops order direction1 / direction2
+               $('input[name="bound"]').on('change', function(){
+                   if ($(this).val()=='1'){
+                       $('#route_stops').empty()
+                       routeStops = info1.data.routeStops
+                       for (var i=0; i<routeStops.length; i++){
+                           $('<option value='+routeStops[i].Route+','+routeStops[i].Bound+','+routeStops[i].ServiceType+','+routeStops[i].BSICode+','+routeStops[i].Seq+'>' +i+'. '+ routeStops[i].CName + '</option>').appendTo('#route_stops')
+                       }
+                   }
+                   else{
+                       $('#route_stops').empty()
+                       routeStops = info2.data.routeStops
+                       var count = 0
+                       for (var i=0; i<routeStops.length; i++){
+                           $('<option value='+routeStops[i].Route+','+routeStops[i].Bound+','+routeStops[i].ServiceType+','+routeStops[i].BSICode+','+routeStops[i].Seq+'>' +(count++)+'. '+ routeStops[i].CName + '</option>').appendTo('#route_stops')
+                       }
+                   }
+               }) // end of onclick event
+
+               // onclick event for user to select the bus stop name in listbox
+               $('#route_stops').on('change',function(){
+                   // get arguments for ETA function (busNo, bound, serviceType, bsiCode, stopSeq)
+                   $('#show_info').empty()
+                   stopSeq = $('#route_stops option:selected').val() // use '$(this)' also ok
+                   var bus_stop_info = $('#route_stops option:selected').val().split(',') // use '$(this)' also ok
+                   //console.log(bus_stop_info)
+
+                   // tk(token) contains the necessary keys for creating a token
+                   var tk = {}
+                   tk.busNo = bus_stop_info[0]
+                   tk.bound = bus_stop_info[1]
+                   tk.serviceType = bus_stop_info[2]
+                   tk.bsiCode = bus_stop_info[3]
+                   tk.stopSeq = bus_stop_info[4]
+
+                   //console.log('EA' + busNo.trim() + sep + bound + sep + serviceType  + sep + bsiCode.trim().replace(/-/gi, '') + sep + stopSeq + sep + new Date().getTime())
+
+                   //var d = new Date()
+                   // pass tk to nodejs(kmb.js) to make the acturl token in order to get the time info from KMB
+                   $.post("/token",tk,function(data){
+                       console.log(data) // receive the response(time info) after passing to token
+                       $('#show_info').append(data)
+                   })
+               })
+		   });
+	   });
+	});
+
+// token will be created on the nodejs part(kmb.js), so this base64 function is useless temporarily
+// function b64EncodeUnicode(str) {
+//     // first we use encodeURIComponent to get percent-encoded UTF-8,
+//     // then we convert the percent encodings into raw bytes which
+//     // can be fed into btoa.
+//     return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g,
+//         function toSolidBytes(match, p1) {
+//             return String.fromCharCode('0x' + p1);
+//     }));
+// }
+
+// another alt. base64 lib: http://www.webtoolkit.info/javascript-base64.html
+
+</script>
