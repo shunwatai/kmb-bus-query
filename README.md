@@ -16,7 +16,7 @@ It is just a simple web page for query the HK KMB Bus Arrival Time.
 
         # node kmb.js 3000
         
-4. open a web browser and go to http://serverIP:3000
+4. open a web browser and go to http://serverIP:3000/form.html
 
 5. input bus number --> select direction --> select bus stop
 
